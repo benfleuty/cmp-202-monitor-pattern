@@ -7,6 +7,7 @@
 #include <vector>
 #include <chrono>
 #include <mutex>
+#include <string>
 
 #include "account.h"
 
@@ -29,8 +30,10 @@ Account bill;
 mutex bill_mutex;
 
 condition_variable progress_cv;
+bool progress_ready = false;
 
 #define UNIQUE_MUTEX unique_lock<mutex>
+#define PRINT_TESTT cout << "test" << endl
 #define PRINT_TEST(x) cout << "test " << (x) << endl
 #define ENDLESSLY for(;;)
 
@@ -38,10 +41,11 @@ void bill_add_mutex_unique() {
 	for (auto i = 0; i < 1000000; ++i)
 	{
 		// deliberate slow down
-		std::this_thread::sleep_for(milliseconds(400));
+		//std::this_thread::sleep_for(milliseconds(400));
 		// critical
 		UNIQUE_MUTEX lock(bill_mutex);
 		bill.add(17, 29);
+		progress_ready = true;
 		progress_cv.notify_one();
 	}
 }
@@ -52,13 +56,15 @@ void print_total()
 
 	ENDLESSLY
 	{
-		cout << "Bill's Total: GBP" << bill.total() << endl;
-		progress_cv.wait(lock);
+		while (!progress_ready)
+			progress_cv.wait(lock);
+		progress_ready = false;
+		const auto progress = bill.total() / 172900000.0 * 100.0;
+		cout << "Adding to Bill's total. Progress: " << progress << "%     \r" << std::flush;
 	}
 }
 
 void unique_lock_mutex() {
-	cout << "Starting unique_lock_mutex()" << endl;
 	const uint8_t thread_count = 10;
 
 	std::vector<thread> threads;
@@ -69,11 +75,18 @@ void unique_lock_mutex() {
 	for (auto i = 0; i < thread_count; ++i)
 		threads[i].join();
 
-	cout << "Finished unique_lock_mutex()" << endl;
+	// clear line
+	cout << "\33[2K" << std::flush;
+	cout << "\rBill's total is now GBP " << std::fixed << std::setprecision(2) << bill.total() << endl;
 }
 
 int main(int argc, char* argv[])
 {
-	unique_lock_mutex();
+	thread t1(unique_lock_mutex);
+	thread t2(print_total);
+	//print_total();
+	t1.join();
+	//t2.join();
+	t2.detach();
 	return 0;
 }
