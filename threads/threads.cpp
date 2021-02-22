@@ -58,9 +58,11 @@ void print_total()
 	{
 		while (!progress_ready)
 			progress_cv.wait(lock);
+
 		progress_ready = false;
 		const auto progress = bill.total() / 172900000.0 * 100.0;
 		cout << "Adding to Bill's total. Progress: " << progress << "%     \r" << std::flush;
+		if (progress == 100.0) break;
 	}
 }
 
@@ -86,7 +88,8 @@ int main(int argc, char* argv[])
 	thread t2(print_total);
 	//print_total();
 	t1.join();
-	//t2.join();
-	t2.detach();
+	PRINT_TESTT;
+	t2.join();
+	//t2.detach();
 	return 0;
 }
